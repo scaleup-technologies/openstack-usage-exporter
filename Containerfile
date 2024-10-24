@@ -10,4 +10,4 @@ RUN go build
 
 EXPOSE 9143
  
-CMD [ “./openstack-usage-exporter ]
+CMD ["./openstack-usage-exporter"]
