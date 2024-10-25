@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/ScaleUp-Technologies/openstack-usage-exporter/exporters"
 	_ "github.com/go-sql-driver/mysql"
@@ -17,6 +18,14 @@ type Exporter interface {
 	prometheus.Collector
 }
 
+func GetBoolEnv(key string, defaultValue bool) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists || strings.TrimSpace(value) == "" {
+		return defaultValue
+	}
+	return strings.EqualFold(value, "true") || value == "1"
+}
+
 func main() {
 	baseDSN := os.Getenv("BASE_DSN")
 
@@ -25,8 +34,8 @@ func main() {
 	}
 
 	enabledExporters := map[string]bool{
-		"cinder": true,
-		"nova":   false,
+		"cinder": GetBoolEnv("CINDER_ENABLED", true),
+		"nova":   GetBoolEnv("NOVA_ENABLED", true),
 	}
 
 	for name, enabled := range enabledExporters {
