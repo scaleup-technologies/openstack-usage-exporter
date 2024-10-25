@@ -2,7 +2,6 @@ package exporters
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,12 +13,7 @@ type CinderUsageExporter struct {
 	size    *prometheus.Desc
 }
 
-func NewCinderUsageExporter(dsn string) (*CinderUsageExporter, error) {
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Cinder DB: %v", err)
-	}
-
+func NewCinderUsageExporter(db *sql.DB) (*CinderUsageExporter, error) {
 	return &CinderUsageExporter{
 		db: db,
 		volumes: prometheus.NewDesc(
