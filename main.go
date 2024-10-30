@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ScaleUp-Technologies/openstack-usage-exporter/exporters"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/scaleup-technologies/openstack-usage-exporter/exporters"
 )
 
 type Exporter interface {

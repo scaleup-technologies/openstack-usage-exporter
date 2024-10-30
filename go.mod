@@ -1,4 +1,4 @@
-module github.com/ScaleUp-Technologies/openstack-usage-exporter
+module github.com/scaleup-technologies/openstack-usage-exporter
 
 go 1.22.1
 
