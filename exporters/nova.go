@@ -2,7 +2,6 @@ package exporters
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,12 +13,7 @@ type NovaUsageExporter struct {
 	ram_mb *prometheus.Desc
 }
 
-func NewNovaUsageExporter(dsn string) (*NovaUsageExporter, error) {
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Nova DB: %v", err)
-	}
-
+func NewNovaUsageExporter(db *sql.DB) (*NovaUsageExporter, error) {
 	return &NovaUsageExporter{
 		db: db,
 		vcpus: prometheus.NewDesc(

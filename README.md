@@ -33,3 +33,18 @@ curl http://localhost:9143/metrics
 ```
 
 Note: it is highly recommended to use a read-only user. Permissions must be granted to all affected databases (nova, cinder etc)
+
+## Architecture
+
+The exporter will run SQL queries on demand when queried. It is therefor important to consider the scrape interval to prevent high load on the database. For redundancy deploy the exporter on multiple hosts and add a load balancer (e.g. haproxy) in front, to only query one exporter at a time.
+
+## Configuration
+
+Configuration is done via enviroment variables.
+
+Exporters can be enabled or disabled:
+
+```shell
+NOVA_ENABLED=true # defaults to true
+CINDER_ENABLED=false
+```
