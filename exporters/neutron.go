@@ -8,8 +8,8 @@ import (
 )
 
 type NeutronUsageExporter struct {
-	db     *sql.DB
-	floatingIPs  *prometheus.Desc
+	db          *sql.DB
+	floatingIPs *prometheus.Desc
 }
 
 func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
@@ -32,7 +32,7 @@ func (e *NeutronUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("select project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id")
+	rows, err := e.db.Query("SELECT project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id")
 	if err != nil {
 		log.Println("Error querying Neutron database:", err)
 		return
