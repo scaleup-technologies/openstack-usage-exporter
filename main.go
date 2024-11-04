@@ -34,8 +34,9 @@ func main() {
 	}
 
 	enabledExporters := map[string]bool{
-		"cinder": GetBoolEnv("CINDER_ENABLED", true),
-		"nova":   GetBoolEnv("NOVA_ENABLED", true),
+		"cinder": 	GetBoolEnv("CINDER_ENABLED", true),
+		"nova":   	GetBoolEnv("NOVA_ENABLED", true),
+		"neutron":	GetBoolEnv("NEUTRON_ENABLED", true),
 	}
 
 	for name, enabled := range enabledExporters {
@@ -57,6 +58,8 @@ func main() {
 			exporter, err = exporters.NewCinderUsageExporter(db)
 		case "nova":
 			exporter, err = exporters.NewNovaUsageExporter(db)
+		case "neutron":
+			exporter, err = exporters.NewNeutronUsageExporter(db)
 		default:
 			log.Fatalf("unknown exporter type: %s", name)
 		}
