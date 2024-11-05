@@ -22,8 +22,8 @@ func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
 			[]string{"project_id"}, nil,
 		),
 		routers: prometheus.NewDesc(
-			"openstack_project_router",
-			"Total number of router per OpenStack project",
+			"openstack_project_routers",
+			"Total number of routers per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
 	}, nil
