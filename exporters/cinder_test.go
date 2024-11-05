@@ -15,22 +15,19 @@ func TestCinderUsageExporter(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Update mock rows to include the total_snapshots column
-	rows := sqlmock.NewRows([]string{"project_id", "total_volumes", "total_size_gb", "total_snapshots"}).
-		// Add rows with sample data, including snapshots count
-		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 12, 43, 5).
-		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 2, 10, 2)
+	rows := sqlmock.NewRows([]string{
+		"project_id", "total_volumes", "volumes_size_gb", "total_snapshots", "total_backups", "total_backups_size_gb",
+	}).
+		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 12, 43, 5, 3, 10).
+		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 2, 10, 2, 1, 5)
 
-	// Mock the database query to return the above rows
 	mock.ExpectQuery("SELECT project_id, COUNT").WillReturnRows(rows)
 
-	// Create the exporter
 	exporter, err := NewCinderUsageExporter(db)
 	if err != nil {
 		t.Fatalf("Failed to create NewCinderUsageExporter: %v", err)
 	}
 
-	// Define the expected output metrics including total_snapshots
 	expectedMetrics := `
         # HELP openstack_project_volume_size_gb Total volume size in GB per OpenStack project
         # TYPE openstack_project_volume_size_gb gauge
@@ -44,14 +41,20 @@ func TestCinderUsageExporter(t *testing.T) {
         # TYPE openstack_project_snapshots gauge
         openstack_project_snapshots{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 2
         openstack_project_snapshots{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 5
+        # HELP openstack_project_backups Total number of backups per OpenStack project
+        # TYPE openstack_project_backups gauge
+        openstack_project_backups{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 1
+        openstack_project_backups{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 3
+        # HELP openstack_project_backups_size_gb Total size of backups in GB per OpenStack project
+        # TYPE openstack_project_backups_size_gb gauge
+        openstack_project_backups_size_gb{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 5
+        openstack_project_backups_size_gb{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 10
 	`
 
-	// Compare the actual exporter output with the expected output
 	if err := testutil.CollectAndCompare(exporter, strings.NewReader(expectedMetrics)); err != nil {
 		t.Errorf("unexpected collecting result:\n%s", err)
 	}
 
-	// Verify all mock expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("There were unfulfilled expectations: %s", err)
 	}
