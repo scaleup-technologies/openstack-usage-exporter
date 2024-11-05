@@ -38,6 +38,7 @@ func main() {
 		"nova":   		GetBoolEnv("NOVA_ENABLED", true),
 		"neutron":		GetBoolEnv("NEUTRON_ENABLED", true),
 		"designate":	GetBoolEnv("DESIGNATE_ENABLED", true),
+		"octavia":		GetBoolEnv("OCTAVIA_ENABLED", true),
 	}
 
 	for name, enabled := range enabledExporters {
@@ -63,6 +64,8 @@ func main() {
 			exporter, err = exporters.NewNeutronUsageExporter(db)
 		case "designate":
 			exporter, err = exporters.NewDesignateUsageExporter(db)
+		case "octavia":
+			exporter, err = exporters.NewOctaviaUsageExporter(db)
 		default:
 			log.Fatalf("unknown exporter type: %s", name)
 		}
