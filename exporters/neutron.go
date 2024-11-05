@@ -10,6 +10,7 @@ import (
 type NeutronUsageExporter struct {
 	db          *sql.DB
 	floatingIPs *prometheus.Desc
+	routers		*prometheus.Desc
 }
 
 func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
@@ -20,11 +21,17 @@ func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
 			"Total number of floating IPs per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
+		routers: prometheus.NewDesc(
+			"openstack_project_router",
+			"Total number of router per OpenStack project",
+			[]string{"project_id"}, nil,
+		),
 	}, nil
 }
 
 func (e *NeutronUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.floatingIPs
+	ch <- e.routers
 }
 
 func (e *NeutronUsageExporter) Collect(ch chan<- prometheus.Metric) {
@@ -32,7 +39,10 @@ func (e *NeutronUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("SELECT project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id")
+	//rows, err := e.db.Query("SELECT project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id")
+	//select project_id, COUNT(id) as total_routers from routers GROUP BY project_id;
+	rows, err := e.db.Query("SELECT f.project_id, COUNT(f.id) AS total_fips, COALESCE(r.total_routers, 0) AS total_routers FROM floatingips f LEFT JOIN (SELECT project_id, COUNT(id) AS total_routers FROM routers GROUP BY project_id) r ON f.project_id = r.project_id GROUP BY f.project_id")
+
 	if err != nil {
 		log.Println("Error querying Neutron database:", err)
 		return
@@ -43,7 +53,8 @@ func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 	for rows.Next() {
 		var projectID string
 		var totalFloatingIPs float64
-		if err := rows.Scan(&projectID, &totalFloatingIPs); err != nil {
+		var totalRouters float64
+		if err := rows.Scan(&projectID, &totalFloatingIPs, &totalRouters); err != nil {
 			log.Println("Error scanning Neutron row:", err)
 			continue
 		}
@@ -52,6 +63,13 @@ func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 			e.floatingIPs,
 			prometheus.GaugeValue,
 			totalFloatingIPs,
+			projectID,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			e.routers,
+			prometheus.GaugeValue,
+			totalRouters,
 			projectID,
 		)
 	}
