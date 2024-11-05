@@ -1,4 +1,3 @@
 Neutron (number of Provider Network Fixed IPs)
-Cinder / Nova Snapshot / Backup Storage
-Octavia (number of LBs)
+Swift/S3 (Storage in GiB)
 Manila (Storage in GiB)
