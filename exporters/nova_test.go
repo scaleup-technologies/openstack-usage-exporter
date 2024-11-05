@@ -15,9 +15,9 @@ func TestNovaUsageExporter(t *testing.T) {
 	}
 	defer db.Close()
 
-	rows := sqlmock.NewRows([]string{"project_id", "total_vcpus", "total_ram_mb"}).
-		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 2, 1024).
-		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 8, 2048)
+	rows := sqlmock.NewRows([]string{"project_id", "total_vcpus", "total_ram_mb", "total_local_storage_gb"}).
+		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 2, 1024, 0).
+		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 8, 2048, 10)
 	mock.ExpectQuery("SELECT project_id, SUM").WillReturnRows(rows)
 
 	exporter, err := NewNovaUsageExporter(db)
@@ -34,6 +34,11 @@ func TestNovaUsageExporter(t *testing.T) {
 		# TYPE openstack_project_ram_mb gauge
 		openstack_project_ram_mb{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 1024
 		openstack_project_ram_mb{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 2048
+		# HELP openstack_project_local_storage_gb Total local storage usage in GB per OpenStack project
+		# TYPE openstack_project_local_storage_gb gauge
+		openstack_project_local_storage_gb{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 0
+		openstack_project_local_storage_gb{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 10
+
 	`
 
 	if err := testutil.CollectAndCompare(exporter, strings.NewReader(expectedMetrics)); err != nil {
