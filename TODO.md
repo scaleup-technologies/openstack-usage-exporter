@@ -1,11 +1,4 @@
-Neutron (number of Provider Network Floating IPs / Fixed IPs)
-Neutron FIPS:
-
-select project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id;
-
-Neutron Router:
-
-select project_id, COUNT(id) as total_routers from routers GROUP BY project_id;
+Neutron (number of Provider Network Fixed IPs)
 
 Designate Zones:
 
