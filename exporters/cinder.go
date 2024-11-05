@@ -8,9 +8,10 @@ import (
 )
 
 type CinderUsageExporter struct {
-	db      *sql.DB
-	volumes *prometheus.Desc
-	size    *prometheus.Desc
+	db            *sql.DB
+	volumes       *prometheus.Desc
+	size          *prometheus.Desc
+	snapshots     *prometheus.Desc // Add new metric for snapshots
 }
 
 func NewCinderUsageExporter(db *sql.DB) (*CinderUsageExporter, error) {
@@ -26,12 +27,18 @@ func NewCinderUsageExporter(db *sql.DB) (*CinderUsageExporter, error) {
 			"Total volume size in GB per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
+		snapshots: prometheus.NewDesc(
+			"openstack_project_snapshots",
+			"Total number of snapshots per OpenStack project",
+			[]string{"project_id"}, nil,
+		),
 	}, nil
 }
 
 func (e *CinderUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.volumes
 	ch <- e.size
+	ch <- e.snapshots // Add snapshots to the Describe method
 }
 
 func (e *CinderUsageExporter) Collect(ch chan<- prometheus.Metric) {
@@ -39,22 +46,44 @@ func (e *CinderUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("SELECT project_id, COUNT(id) as total_volumes, SUM(size) as total_size_gb FROM volumes WHERE deleted = 0 GROUP BY project_id")
+	// Combined query to get volumes and snapshots data
+	rows, err := e.db.Query(`
+		SELECT 
+			v.project_id, 
+			COUNT(DISTINCT v.id) AS total_volumes, 
+			SUM(v.size) AS total_size_gb, 
+			COALESCE(s.total_snapshots, 0) AS total_snapshots
+		FROM 
+			volumes v
+		LEFT JOIN 
+			(SELECT project_id, COUNT(id) AS total_snapshots FROM snapshots GROUP BY project_id) s 
+			ON v.project_id = s.project_id
+		WHERE 
+			v.deleted = 0
+		GROUP BY 
+			v.project_id
+	`)
+
 	if err != nil {
-		log.Println("Error querying Cinder database:", err)
+		log.Println("Error querying Cinder and Snapshot databases:", err)
 		return
 	}
 	defer rows.Close()
 
+	// Iterate over the result rows
 	for rows.Next() {
 		var projectID string
 		var totalVolumes float64
 		var totalSizeGB float64
-		if err := rows.Scan(&projectID, &totalVolumes, &totalSizeGB); err != nil {
+		var totalSnapshots float64 // Add variable for snapshots
+
+		// Scan the row data
+		if err := rows.Scan(&projectID, &totalVolumes, &totalSizeGB, &totalSnapshots); err != nil {
 			log.Println("Error scanning Cinder row:", err)
 			continue
 		}
 
+		// Export the volumes metric
 		ch <- prometheus.MustNewConstMetric(
 			e.volumes,
 			prometheus.GaugeValue,
@@ -62,13 +91,23 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 			projectID,
 		)
 
+		// Export the size metric
 		ch <- prometheus.MustNewConstMetric(
 			e.size,
 			prometheus.GaugeValue,
 			totalSizeGB,
 			projectID,
 		)
+
+		// Export the snapshots metric
+		ch <- prometheus.MustNewConstMetric(
+			e.snapshots,
+			prometheus.GaugeValue,
+			totalSnapshots,
+			projectID,
+		)
 	}
+
 	if err := rows.Err(); err != nil {
 		log.Println("Error in Cinder result set:", err)
 	}
