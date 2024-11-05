@@ -39,8 +39,6 @@ func (e *NeutronUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	//rows, err := e.db.Query("SELECT project_id, COUNT(id) as total_fips from floatingips GROUP BY project_id")
-	//select project_id, COUNT(id) as total_routers from routers GROUP BY project_id;
 	rows, err := e.db.Query("SELECT f.project_id, COUNT(f.id) AS total_fips, COALESCE(r.total_routers, 0) AS total_routers FROM floatingips f LEFT JOIN (SELECT project_id, COUNT(id) AS total_routers FROM routers GROUP BY project_id) r ON f.project_id = r.project_id GROUP BY f.project_id")
 
 	if err != nil {

@@ -12,32 +12,26 @@ type DesignateUsageExporter struct {
 	zones     *prometheus.Desc
 }
 
-// NewDesignateUsageExporter initializes the DesignateUsageExporter with a given database connection.
 func NewDesignateUsageExporter(db *sql.DB) (*DesignateUsageExporter, error) {
 	return &DesignateUsageExporter{
 		db: db,
 		zones: prometheus.NewDesc(
-			"openstack_project_zones",
-			"Total number of zones per OpenStack project",
+			"openstack_project_dns_zones",
+			"Total number of dns zones per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
 	}, nil
 }
 
-// Describe sends the descriptor for the metric(s) to the Prometheus channel.
 func (e *DesignateUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.zones
 }
 
-// Collect fetches the metrics from the database and sends them to the Prometheus channel.
 func (e *DesignateUsageExporter) Collect(ch chan<- prometheus.Metric) {
 	e.collectMetrics(ch)
 }
 
-// collectMetrics executes the query to get the number of zones used by each project
-// and sends the metrics to the Prometheus channel.
 func (e *DesignateUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	// Query to get the total number of zones for each project, excluding the empty tenant_id
 	rows, err := e.db.Query(`
 		SELECT tenant_id, COUNT(id) AS total_zones
 		FROM zones
@@ -51,7 +45,6 @@ func (e *DesignateUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 	}
 	defer rows.Close()
 
-	// Iterate over the rows returned by the query
 	for rows.Next() {
 		var projectID string
 		var totalZones float64
@@ -60,7 +53,6 @@ func (e *DesignateUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		// Send the total zones as a Prometheus metric
 		ch <- prometheus.MustNewConstMetric(
 			e.zones,
 			prometheus.GaugeValue,
@@ -69,7 +61,6 @@ func (e *DesignateUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		)
 	}
 
-	// Check for errors during iteration
 	if err := rows.Err(); err != nil {
 		log.Println("Error in Designate result set:", err)
 	}
