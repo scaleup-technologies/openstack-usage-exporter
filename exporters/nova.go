@@ -28,8 +28,8 @@ func NewNovaUsageExporter(db *sql.DB) (*NovaUsageExporter, error) {
 			[]string{"project_id"}, nil,
 		),
 		local_storage_gb: prometheus.NewDesc(
-			"openstack_prject_local_storage_gb",
-			"Total local storage usage in GB per Openstack project",
+			"openstack_project_local_storage_gb",
+			"Total local storage usage in GB per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
 	}, nil
