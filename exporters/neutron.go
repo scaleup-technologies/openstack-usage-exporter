@@ -10,7 +10,7 @@ import (
 type NeutronUsageExporter struct {
 	db          *sql.DB
 	floatingIPs *prometheus.Desc
-	routers		*prometheus.Desc
+	routers     *prometheus.Desc
 }
 
 func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
@@ -39,23 +39,63 @@ func (e *NeutronUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("SELECT f.project_id, COUNT(f.id) AS total_fips, COALESCE(r.total_routers, 0) AS total_routers FROM floatingips f LEFT JOIN (SELECT project_id, COUNT(id) AS total_routers FROM routers GROUP BY project_id) r ON f.project_id = r.project_id GROUP BY f.project_id")
-
+	floatingIPsCounts := make(map[string]float64)
+	rows, err := e.db.Query("SELECT project_id, COUNT(id) AS total_fips FROM floatingips GROUP BY project_id")
 	if err != nil {
-		log.Println("Error querying Neutron database:", err)
+		log.Println("Error querying floating IP counts:", err)
 		return
 	}
-
 	defer rows.Close()
 
 	for rows.Next() {
 		var projectID string
 		var totalFloatingIPs float64
-		var totalRouters float64
-		if err := rows.Scan(&projectID, &totalFloatingIPs, &totalRouters); err != nil {
-			log.Println("Error scanning Neutron row:", err)
+		if err := rows.Scan(&projectID, &totalFloatingIPs); err != nil {
+			log.Println("Error scanning floating IP row:", err)
 			continue
 		}
+		floatingIPsCounts[projectID] = totalFloatingIPs
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("Error in floating IPs result set:", err)
+		return
+	}
+
+	routerCounts := make(map[string]float64)
+	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_routers FROM routers GROUP BY project_id")
+	if err != nil {
+		log.Println("Error querying router counts:", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var projectID string
+		var totalRouters float64
+		if err := rows.Scan(&projectID, &totalRouters); err != nil {
+			log.Println("Error scanning router row:", err)
+			continue
+		}
+		routerCounts[projectID] = totalRouters
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("Error in routers result set:", err)
+		return
+	}
+
+	projectIDs := make(map[string]bool)
+	for projectID := range floatingIPsCounts {
+		projectIDs[projectID] = true
+	}
+	for projectID := range routerCounts {
+		projectIDs[projectID] = true
+	}
+
+	for projectID := range projectIDs {
+		totalFloatingIPs := floatingIPsCounts[projectID]
+		totalRouters := routerCounts[projectID]
 
 		ch <- prometheus.MustNewConstMetric(
 			e.floatingIPs,
@@ -70,9 +110,5 @@ func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 			totalRouters,
 			projectID,
 		)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Println("Error in Neutron result set:", err)
 	}
 }
