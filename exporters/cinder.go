@@ -35,14 +35,19 @@ func NewCinderUsageExporter(db *sql.DB) (*CinderUsageExporter, error) {
 			"Total number of snapshots per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
+		snapshotsSize: prometheus.NewDesc(
+			"openstack_project_snapshots_size_gb",
+			"Total size of snapshots in GB per OpenStack project",
+			[]string{"project_id"}, nil,
+		),
+		backups: prometheus.NewDesc(
+			"openstack_project_backups",
+			"Total number of backups per OpenStack project",
+			[]string{"project_id"}, nil,
+		),
 		backupsSize: prometheus.NewDesc(
 			"openstack_project_backups_size_gb",
 			"Total size of backups in GB per OpenStack project",
-			[]string{"project_id"}, nil,
-		),
-		totalBackups: prometheus.NewDesc(
-			"openstack_project_backups",
-			"Total number of backups per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
 	}, nil
@@ -52,6 +57,7 @@ func (e *CinderUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.volumes
 	ch <- e.volumesSize
 	ch <- e.snapshots
+	ch <- e.snapshotsSize
 	ch <- e.backups
 	ch <- e.backupsSize
 }
@@ -95,25 +101,34 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		log.Println("Error in Volumes result set:", err)
 	}
 
-	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_snapshots FROM snapshots WHERE deleted = 0 GROUP BY project_id")
+	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_snapshots, SUM(volume_size) AS snapshot_size_gb FROM snapshots WHERE deleted = 0 GROUP BY project_id")
 	if err != nil {
-		log.Println("Error querying Snapshots:", err)
+		log.Println("Error querying Snapshotss:", err)
 		return
 	}
 	defer rows.Close()
 
-	snapshotsData := make(map[string]float64)
+	snapshotsData := make(map[string]struct {
+		totalSnapshots    float64
+		totalSnapshotsSizeGB   float64
+	})
 
 	for rows.Next() {
 		var projectID string
-		var totalSnapshots float64
+		var totalSnapshots, snapshotsSize float64
 
-		if err := rows.Scan(&projectID, &totalSnapshots); err != nil {
+		if err := rows.Scan(&projectID, &totalSnapshots, &snapshotsSize); err != nil {
 			log.Println("Error scanning Snapshots row:", err)
 			continue
 		}
 
-		snapshotsData[projectID] = totalSnapshots
+		snapshotsData[projectID] = struct {
+			totalSnapshots  float64
+			totalSnapshotsSizeGB float64
+		}{
+			totalSnapshots:  totalSnapshots,
+			totalSnapshotsSizeGB: snapshotsSize,
+		}
 	}
 
 	if err := rows.Err(); err != nil {
@@ -155,7 +170,7 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 	}
 
 	for projectID, volumes := range volumesData {
-		totalSnapshots := snapshotsData[projectID]
+		snapshots := snapshotsData[projectID]
 		backups := backupsData[projectID]
 
 		ch <- prometheus.MustNewConstMetric(
@@ -175,12 +190,19 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			e.snapshots,
 			prometheus.GaugeValue,
-			totalSnapshots,
+			snapshots.totalSnapshots,
 			projectID,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
-			e.totalBackups,
+			e.snapshotsSize,
+			prometheus.GaugeValue,
+			snapshots.totalSnapshotsSizeGB,
+			projectID,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			e.backups,
 			prometheus.GaugeValue,
 			backups.totalBackups,
 			projectID,
