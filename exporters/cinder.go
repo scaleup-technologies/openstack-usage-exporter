@@ -12,8 +12,9 @@ type CinderUsageExporter struct {
 	volumes             *prometheus.Desc
 	volumesSize         *prometheus.Desc
 	snapshots           *prometheus.Desc
+	snapshotsSize		*prometheus.Desc
+	backups		        *prometheus.Desc
 	backupsSize         *prometheus.Desc
-	totalBackups        *prometheus.Desc
 }
 
 func NewCinderUsageExporter(db *sql.DB) (*CinderUsageExporter, error) {
@@ -51,8 +52,8 @@ func (e *CinderUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.volumes
 	ch <- e.volumesSize
 	ch <- e.snapshots
+	ch <- e.backups
 	ch <- e.backupsSize
-	ch <- e.totalBackups
 }
 
 func (e *CinderUsageExporter) Collect(ch chan<- prometheus.Metric) {
@@ -69,7 +70,7 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 
 	volumesData := make(map[string]struct {
 		totalVolumes    float64
-		volumesSizeGB   float64
+		totalVolumesSizeGB   float64
 	})
 
 	for rows.Next() {
@@ -83,10 +84,10 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 
 		volumesData[projectID] = struct {
 			totalVolumes  float64
-			volumesSizeGB float64
+			totalVolumesSizeGB float64
 		}{
 			totalVolumes:  totalVolumes,
-			volumesSizeGB: volumesSize,
+			totalVolumesSizeGB: volumesSize,
 		}
 	}
 
@@ -167,7 +168,7 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			e.volumesSize,
 			prometheus.GaugeValue,
-			volumes.volumesSizeGB,
+			volumes.totalVolumesSizeGB,
 			projectID,
 		)
 
