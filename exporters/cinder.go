@@ -60,64 +60,114 @@ func (e *CinderUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query(`
-		SELECT 
-			v.project_id, 
-			COUNT(DISTINCT v.id) AS total_volumes, 
-			SUM(v.size) AS volumes_size_gb,
-			COALESCE(s.total_snapshots, 0) AS total_snapshots,
-			COALESCE(b.total_backups, 0) AS total_backups,
-			COALESCE(b.total_backups_size_gb, 0) AS total_backups_size_gb
-		FROM 
-			volumes v
-		LEFT JOIN 
-			(SELECT project_id, COUNT(id) AS total_snapshots 
-			 FROM snapshots 
-			 WHERE deleted = 0 
-			 GROUP BY project_id) s 
-		ON v.project_id = s.project_id
-		LEFT JOIN 
-			(SELECT project_id, COUNT(id) AS total_backups, SUM(size) AS total_backups_size_gb
-			 FROM backups 
-			 WHERE deleted = 0 
-			 GROUP BY project_id) b
-		ON v.project_id = b.project_id
-		WHERE 
-			v.deleted = 0
-		GROUP BY 
-			v.project_id
-	`)
-
+	rows, err := e.db.Query("SELECT project_id, COUNT(id) AS total_volumes, SUM(size) AS volumes_size_gb FROM volumes WHERE deleted = 0 GROUP BY project_id")
 	if err != nil {
-		log.Println("Error querying Cinder, Snapshots, and Backups databases:", err)
+		log.Println("Error querying Volumes:", err)
 		return
 	}
 	defer rows.Close()
 
+	volumesData := make(map[string]struct {
+		totalVolumes    float64
+		volumesSizeGB   float64
+	})
+
 	for rows.Next() {
 		var projectID string
-		var totalVolumes float64
-		var volumesSize float64
-		var totalSnapshots float64
-		var totalBackups float64
-		var totalBackupsSizeGB float64
+		var totalVolumes, volumesSize float64
 
-		if err := rows.Scan(&projectID, &totalVolumes, &volumesSize, &totalSnapshots, &totalBackups, &totalBackupsSizeGB); err != nil {
-			log.Println("Error scanning Cinder row:", err)
+		if err := rows.Scan(&projectID, &totalVolumes, &volumesSize); err != nil {
+			log.Println("Error scanning Volumes row:", err)
 			continue
 		}
+
+		volumesData[projectID] = struct {
+			totalVolumes  float64
+			volumesSizeGB float64
+		}{
+			totalVolumes:  totalVolumes,
+			volumesSizeGB: volumesSize,
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("Error in Volumes result set:", err)
+	}
+
+	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_snapshots FROM snapshots WHERE deleted = 0 GROUP BY project_id")
+	if err != nil {
+		log.Println("Error querying Snapshots:", err)
+		return
+	}
+	defer rows.Close()
+
+	snapshotsData := make(map[string]float64)
+
+	for rows.Next() {
+		var projectID string
+		var totalSnapshots float64
+
+		if err := rows.Scan(&projectID, &totalSnapshots); err != nil {
+			log.Println("Error scanning Snapshots row:", err)
+			continue
+		}
+
+		snapshotsData[projectID] = totalSnapshots
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("Error in Snapshots result set:", err)
+	}
+
+	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_backups, SUM(size) AS total_backups_size_gb FROM backups WHERE deleted = 0 GROUP BY project_id")
+	if err != nil {
+		log.Println("Error querying Backups:", err)
+		return
+	}
+	defer rows.Close()
+
+	backupsData := make(map[string]struct {
+		totalBackups      float64
+		totalBackupsSizeGB float64
+	})
+
+	for rows.Next() {
+		var projectID string
+		var totalBackups, totalBackupsSizeGB float64
+
+		if err := rows.Scan(&projectID, &totalBackups, &totalBackupsSizeGB); err != nil {
+			log.Println("Error scanning Backups row:", err)
+			continue
+		}
+
+		backupsData[projectID] = struct {
+			totalBackups      float64
+			totalBackupsSizeGB float64
+		}{
+			totalBackups:      totalBackups,
+			totalBackupsSizeGB: totalBackupsSizeGB,
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("Error in Backups result set:", err)
+	}
+
+	for projectID, volumes := range volumesData {
+		totalSnapshots := snapshotsData[projectID]
+		backups := backupsData[projectID]
 
 		ch <- prometheus.MustNewConstMetric(
 			e.volumes,
 			prometheus.GaugeValue,
-			totalVolumes,
+			volumes.totalVolumes,
 			projectID,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			e.volumesSize,
 			prometheus.GaugeValue,
-			volumesSize,
+			volumes.volumesSizeGB,
 			projectID,
 		)
 
@@ -131,19 +181,15 @@ func (e *CinderUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			e.totalBackups,
 			prometheus.GaugeValue,
-			totalBackups,
+			backups.totalBackups,
 			projectID,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			e.backupsSize,
 			prometheus.GaugeValue,
-			totalBackupsSizeGB,
+			backups.totalBackupsSizeGB,
 			projectID,
 		)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Println("Error in Cinder result set:", err)
 	}
 }
