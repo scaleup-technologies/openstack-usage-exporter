@@ -24,10 +24,10 @@ func TestCinderUsageExporter(t *testing.T) {
 		WillReturnRows(volumeRows)
 
 	snapshotRows := sqlmock.NewRows([]string{
-		"project_id", "total_snapshots"}).
-		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 2).
-		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 5)
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT project_id, COUNT(id) AS total_snapshots FROM snapshots WHERE deleted = 0 GROUP BY project_id")).
+		"project_id", "total_snapshots", "snapshot_size_gb"}).
+		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 2, 8).
+		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 5, 15)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT project_id, COUNT(id) AS total_snapshots, SUM(volume_size) AS snapshot_size_gb FROM snapshots WHERE deleted = 0 GROUP BY project_id")).
 		WillReturnRows(snapshotRows)
 
 	backupRows := sqlmock.NewRows([]string{
@@ -55,6 +55,10 @@ func TestCinderUsageExporter(t *testing.T) {
         # TYPE openstack_project_snapshots gauge
         openstack_project_snapshots{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 2
         openstack_project_snapshots{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 5
+        # HELP openstack_project_snapshots_size_gb Total size of snapshots in GB per OpenStack project
+        # TYPE openstack_project_snapshots_size_gb gauge
+        openstack_project_snapshots_size_gb{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 8
+        openstack_project_snapshots_size_gb{project_id="c352b0ed-30ca-4634-9c2d-1947efc29096"} 15
         # HELP openstack_project_volume_size_gb Total volume size in GB per OpenStack project
         # TYPE openstack_project_volume_size_gb gauge
         openstack_project_volume_size_gb{project_id="6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096"} 10
