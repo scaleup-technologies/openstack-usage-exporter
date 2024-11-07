@@ -8,9 +8,10 @@ import (
 )
 
 type NovaUsageExporter struct {
-	db     *sql.DB
-	vcpus  *prometheus.Desc
-	ram_mb *prometheus.Desc
+	db     				*sql.DB
+	vcpus  				*prometheus.Desc
+	ram_mb 				*prometheus.Desc
+	local_storage_gb	*prometheus.Desc
 }
 
 func NewNovaUsageExporter(db *sql.DB) (*NovaUsageExporter, error) {
@@ -26,12 +27,18 @@ func NewNovaUsageExporter(db *sql.DB) (*NovaUsageExporter, error) {
 			"Total ram usage in MB per OpenStack project",
 			[]string{"project_id"}, nil,
 		),
+		local_storage_gb: prometheus.NewDesc(
+			"openstack_project_local_storage_gb",
+			"Total local storage usage in GB per OpenStack project",
+			[]string{"project_id"}, nil,
+		),
 	}, nil
 }
 
 func (e *NovaUsageExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.vcpus
 	ch <- e.ram_mb
+	ch <- e.local_storage_gb
 }
 
 func (e *NovaUsageExporter) Collect(ch chan<- prometheus.Metric) {
@@ -39,7 +46,7 @@ func (e *NovaUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NovaUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("SELECT project_id, SUM(vcpus) AS total_vcpus, SUM(memory_mb) AS total_ram_mb from instances WHERE deleted = 0 GROUP BY project_id")
+	rows, err := e.db.Query("SELECT project_id, SUM(vcpus) AS total_vcpus, SUM(memory_mb) AS total_ram_mb, SUM(root_gb) as total_root_gb FROM instances WHERE deleted = 0 GROUP BY project_id")
 	if err != nil {
 		log.Println("Error querying Nova database:", err)
 		return
@@ -50,7 +57,8 @@ func (e *NovaUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		var projectID string
 		var totalVcpus float64
 		var totalRamMB float64
-		if err := rows.Scan(&projectID, &totalVcpus, &totalRamMB); err != nil {
+		var totalLocalStorageGB float64
+		if err := rows.Scan(&projectID, &totalVcpus, &totalRamMB, &totalLocalStorageGB); err != nil {
 			log.Println("Error scanning Nova row:", err)
 			continue
 		}
@@ -69,6 +77,12 @@ func (e *NovaUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 			projectID,
 		)
 
+		ch <- prometheus.MustNewConstMetric(
+			e.local_storage_gb,
+			prometheus.GaugeValue,
+			totalLocalStorageGB,
+			projectID,
+		)
 	}
 	if err := rows.Err(); err != nil {
 		log.Println("Error in Nova result set:", err)
