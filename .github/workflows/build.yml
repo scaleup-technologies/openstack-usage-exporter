@@ -33,3 +33,7 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/scaleup-technologies/openstack-usage-exporter:${{ env.TAG_VERSION }}
+
+permissions:
+  contents: write
+  packages: write
