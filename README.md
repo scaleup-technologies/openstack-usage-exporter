@@ -45,6 +45,11 @@ Configuration is done via enviroment variables.
 Exporters can be enabled or disabled:
 
 ```shell
-NOVA_ENABLED=true # defaults to true
-CINDER_ENABLED=false
+# Default values
+NOVA_ENABLED=true
+CINDER_ENABLED=true
+DESIGNATE_ENABLED=true
+MANILA_ENABLED=false
+NEUTRON_ENABLED=true
+OCTAVIA_ENABLED=true
 ```

@@ -34,11 +34,12 @@ func main() {
 	}
 
 	enabledExporters := map[string]bool{
-		"cinder": 		GetBoolEnv("CINDER_ENABLED", true),
-		"nova":   		GetBoolEnv("NOVA_ENABLED", true),
-		"neutron":		GetBoolEnv("NEUTRON_ENABLED", true),
-		"designate":	GetBoolEnv("DESIGNATE_ENABLED", true),
-		"octavia":		GetBoolEnv("OCTAVIA_ENABLED", true),
+		"cinder":    GetBoolEnv("CINDER_ENABLED", true),
+		"nova":      GetBoolEnv("NOVA_ENABLED", true),
+		"neutron":   GetBoolEnv("NEUTRON_ENABLED", true),
+		"designate": GetBoolEnv("DESIGNATE_ENABLED", true),
+		"octavia":   GetBoolEnv("OCTAVIA_ENABLED", true),
+		"manila":    GetBoolEnv("MANILA_ENABLED", false),
 	}
 
 	for name, enabled := range enabledExporters {
@@ -66,6 +67,8 @@ func main() {
 			exporter, err = exporters.NewDesignateUsageExporter(db)
 		case "octavia":
 			exporter, err = exporters.NewOctaviaUsageExporter(db)
+		case "manila":
+			exporter, err = exporters.NewManilaUsageExporter(db)
 		default:
 			log.Fatalf("unknown exporter type: %s", name)
 		}
