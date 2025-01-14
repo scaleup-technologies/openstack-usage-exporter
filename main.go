@@ -34,12 +34,13 @@ func main() {
 	}
 
 	enabledExporters := map[string]bool{
-		"cinder":    GetBoolEnv("CINDER_ENABLED", true),
-		"nova":      GetBoolEnv("NOVA_ENABLED", true),
-		"neutron":   GetBoolEnv("NEUTRON_ENABLED", true),
-		"designate": GetBoolEnv("DESIGNATE_ENABLED", true),
-		"octavia":   GetBoolEnv("OCTAVIA_ENABLED", true),
-		"manila":    GetBoolEnv("MANILA_ENABLED", false),
+		"cinder":     GetBoolEnv("CINDER_ENABLED", true),
+		"nova":       GetBoolEnv("NOVA_ENABLED", true),
+		"nova-trait": GetBoolEnv("NOVA_TRAIT_ENABLED", false),
+		"neutron":    GetBoolEnv("NEUTRON_ENABLED", true),
+		"designate":  GetBoolEnv("DESIGNATE_ENABLED", true),
+		"octavia":    GetBoolEnv("OCTAVIA_ENABLED", true),
+		"manila":     GetBoolEnv("MANILA_ENABLED", false),
 	}
 
 	for name, enabled := range enabledExporters {
@@ -61,6 +62,12 @@ func main() {
 			exporter, err = exporters.NewCinderUsageExporter(db)
 		case "nova":
 			exporter, err = exporters.NewNovaUsageExporter(db)
+		case "nova-trait":
+			trait, exists := os.LookupEnv("NOVA_TRAIT")
+			if !exists {
+				log.Fatalf("NOVA_TRAIT not set")
+			}
+			exporter, err = exporters.NewNovaTraitUsageExporter(db, trait)
 		case "neutron":
 			exporter, err = exporters.NewNeutronUsageExporter(db)
 		case "designate":
