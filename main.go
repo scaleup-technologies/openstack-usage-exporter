@@ -48,7 +48,7 @@ func main() {
 			continue
 		}
 
-		dsn := baseDSN + "/" + name
+		dsn := baseDSN + "/" + strings.Split(name, "-")[0]
 
 		db, err := sql.Open("mysql", dsn)
 		if err != nil {

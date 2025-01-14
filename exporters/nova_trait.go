@@ -42,7 +42,7 @@ func (e *NovaTraitUsageExporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *NovaTraitUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
-	rows, err := e.db.Query("SELECT i.project_id AS project_id, COUNT(i.id) AS total_instances, SUM(vcpus) AS total_vcpus FROM instances i INNER JOIN instance_system_metadata m on i.uuid = m.instance_uuid WHERE deleted = 0 AND m.key = 'image_trait:?' and m.value = 'required' GROUP BY project_id", e.trait)
+	rows, err := e.db.Query("SELECT i.project_id AS project_id, COUNT(i.id) AS total_instances, SUM(vcpus) AS total_vcpus FROM instances i INNER JOIN instance_system_metadata m on i.uuid = m.instance_uuid WHERE i.deleted = 0 AND m.key = ? and m.value = 'required' GROUP BY project_id", "image_trait:"+e.trait)
 	if err != nil {
 		log.Println("Error querying Nova database:", err)
 		return
