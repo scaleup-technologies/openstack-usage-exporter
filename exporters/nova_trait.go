@@ -53,7 +53,7 @@ func (e *NovaTraitUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 		var projectID string
 		var totalVcpus float64
 		var totalInstances float64
-		if err := rows.Scan(&projectID, &totalVcpus, &totalInstances); err != nil {
+		if err := rows.Scan(&projectID, &totalInstances, &totalVcpus); err != nil {
 			log.Println("Error scanning Nova row:", err)
 			continue
 		}
