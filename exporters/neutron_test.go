@@ -23,9 +23,9 @@ func TestNeutronUsageExporter(t *testing.T) {
 	routerRows := sqlmock.NewRows([]string{"project_id", "total_routers"}).
 		AddRow("c352b0ed-30ca-4634-9c2d-1947efc29096", 1).
 		AddRow("6ee08ba2-2ca1-4c91-b139-4bf0dbaa4096", 2)
-	mock.ExpectQuery("SELECT project_id, COUNT\\(id\\) AS total_routers FROM routers GROUP BY project_id").WillReturnRows(routerRows)
+	mock.ExpectQuery("SELECT r.project_id, COUNT\\(r.id\\) AS total_routers FROM routers r").WithArgs("5d8722dd-186c-4e32-a170-b216a04688dc").WillReturnRows(routerRows)
 
-	exporter, err := NewNeutronUsageExporter(db)
+	exporter, err := NewNeutronUsageExporter(db, "5d8722dd-186c-4e32-a170-b216a04688dc")
 	if err != nil {
 		t.Fatalf("Failed to create NeutronUsageExporter: %v", err)
 	}

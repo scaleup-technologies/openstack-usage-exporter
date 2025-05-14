@@ -69,7 +69,11 @@ func main() {
 			}
 			exporter, err = exporters.NewNovaTraitUsageExporter(db, trait)
 		case "neutron":
-			exporter, err = exporters.NewNeutronUsageExporter(db)
+			externalNetworkId, exists := os.LookupEnv("NEUTRON_ROUTER_EXTERNAL_NETWORK_ID")
+			if !exists {
+				log.Fatalf("NEUTRON_ROUTER_EXTERNAL_NETWORK_ID not set")
+			}
+			exporter, err = exporters.NewNeutronUsageExporter(db, externalNetworkId)
 		case "designate":
 			exporter, err = exporters.NewDesignateUsageExporter(db)
 		case "octavia":
