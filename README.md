@@ -52,4 +52,8 @@ DESIGNATE_ENABLED=true
 MANILA_ENABLED=false
 NEUTRON_ENABLED=true
 OCTAVIA_ENABLED=true
+
+# Routers returned by the Neutron Exporter are filtered by a specific external network ID.
+# This is designed to only count the usage of routers which are connected to an external network.
+NEUTRON_ROUTER_EXTERNAL_NETWORK_ID=5d8722dd-186c-4e32-a170-b216a04688dc
 ```

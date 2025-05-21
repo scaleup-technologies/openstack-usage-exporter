@@ -8,14 +8,16 @@ import (
 )
 
 type NeutronUsageExporter struct {
-	db          *sql.DB
-	floatingIPs *prometheus.Desc
-	routers     *prometheus.Desc
+	db                *sql.DB
+	externalNetworkId string
+	floatingIPs       *prometheus.Desc
+	routers           *prometheus.Desc
 }
 
-func NewNeutronUsageExporter(db *sql.DB) (*NeutronUsageExporter, error) {
+func NewNeutronUsageExporter(db *sql.DB, externalNetworkId string) (*NeutronUsageExporter, error) {
 	return &NeutronUsageExporter{
-		db: db,
+		db:                db,
+		externalNetworkId: externalNetworkId,
 		floatingIPs: prometheus.NewDesc(
 			"openstack_project_floating_ips",
 			"Total number of floating IPs per OpenStack project",
@@ -63,7 +65,7 @@ func (e *NeutronUsageExporter) collectMetrics(ch chan<- prometheus.Metric) {
 	}
 
 	routerCounts := make(map[string]float64)
-	rows, err = e.db.Query("SELECT project_id, COUNT(id) AS total_routers FROM routers GROUP BY project_id")
+	rows, err = e.db.Query("SELECT r.project_id, COUNT(r.id) AS total_routers FROM routers r INNER JOIN ports p ON r.gw_port_id = p.id WHERE p.network_id = ? GROUP BY r.project_id", e.externalNetworkId)
 	if err != nil {
 		log.Println("Error querying router counts:", err)
 		return
